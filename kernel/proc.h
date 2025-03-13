@@ -83,6 +83,8 @@ struct trapframe {
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
+// 这就是PCB
+//注释含义：明确了在多线程或多核环境下，哪些字段需要加锁保护，哪些字段是进程私有的
 struct proc {
   struct spinlock lock;
 
@@ -105,4 +107,5 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  uint64 tracemark;            // Syscalls the proc is tracing
 };

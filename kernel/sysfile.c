@@ -2,7 +2,8 @@
 // File-system system calls.
 // Mostly argument checking, since we don't trust
 // user code, and calls into file.c and fs.c.
-//
+// sysfile.c 主要负责处理与文件操作相关的系统调用
+// 包含了与文件系统相关的功能，如打开文件、读取文件、写入文件、关闭文件等操作。
 
 #include "types.h"
 #include "riscv.h"

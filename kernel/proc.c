@@ -43,14 +43,15 @@ proc_mapstacks(pagetable_t kpgtbl) {
 }
 
 // initialize the proc table at boot time.
+// 在编译时，proc 数组被分配内存，并且所有字段被初始化为 0，进程状态为 UNUSED。
 void
 procinit(void)
 {
   struct proc *p;
   
-  initlock(&pid_lock, "nextpid");
-  initlock(&wait_lock, "wait_lock");
-  for(p = proc; p < &proc[NPROC]; p++) {
+  initlock(&pid_lock, "nextpid");// 初始化进程 ID 锁（pid_lock），确保进程 ID 分配的并发安全。
+  initlock(&wait_lock, "wait_lock");// 初始化等待锁（wait_lock），确保进程等待队列的并发安全。
+  for(p = proc; p < &proc[NPROC]; p++) { //初始化每个进程的自旋锁和内核栈
       initlock(&p->lock, "proc");
       p->kstack = KSTACK((int) (p - proc));
   }
@@ -141,6 +142,7 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  p->tracemark=0;//新进程默认不追踪syscall
   return p;
 }
 
@@ -280,6 +282,9 @@ fork(void)
   if((np = allocproc()) == 0){
     return -1;
   }
+
+  //子进程首先继承父进程的tracemark
+  np->tracemark = p->tracemark;
 
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
@@ -653,4 +658,18 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+uint64
+nunusedpnum(void){
+  struct proc *p;
+  uint64 nunusedpcount=0;
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->state!=UNUSED){
+      nunusedpcount++;
+    }
+    release(&p->lock);
+  }
+  return nunusedpcount;
 }

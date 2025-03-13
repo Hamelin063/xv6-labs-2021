@@ -14,10 +14,14 @@ void freerange(void *pa_start, void *pa_end);
 extern char end[]; // first address after kernel.
                    // defined by kernel.ld.
 
+// 这是一个简单的链表节点结构体，用于表示一个空闲内存页。
+// 每个空闲内存页的开头存储一个 struct run 结构体，用于链接到下一个空闲内存页。
 struct run {
   struct run *next;
 };
 
+// 这是一个全局变量，用于管理内核的物理内存分配和回收。
+// 它包含一个自旋锁和一个指向空闲链表的指针。
 struct {
   struct spinlock lock;
   struct run *freelist;
@@ -79,4 +83,22 @@ kalloc(void)
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
+}
+
+// 返回当前内存中空闲空间的大小
+// 按页分配，剩余空间肯定是PGSIZE的倍数
+
+uint64
+kfreememosize(void){
+  struct run *r;
+  uint64 freespace=0;
+  // 学会模仿，先上锁
+  acquire(&kmem.lock);
+  r=kmem.freelist;
+  while(r){
+    freespace+=PGSIZE;
+    r=r->next;
+  }
+  release(&kmem.lock);
+  return freespace;
 }
