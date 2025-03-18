@@ -82,7 +82,7 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
 {
   if(va >= MAXVA)
     panic("walk");
-
+  // 自外向内level 2-1-0
   for(int level = 2; level > 0; level--) {
     pte_t *pte = &pagetable[PX(level, va)];
     if(*pte & PTE_V) {
@@ -431,4 +431,35 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   } else {
     return -1;
   }
+}
+
+// 非叶子节点：页表项不映射到物理页（PTE_R | PTE_W | PTE_X 为 0）。
+// 叶子节点：页表项映射到物理页（PTE_R | PTE_W | PTE_X 至少有一个为 1）。
+// 即：非叶子节点仅用于指向下一级页表，不需要设置权限标志位。
+void vmprint_helper(pagetable_t pagetable, int depth) {
+  static char* indent[] = {
+      "",
+      "..",
+      ".. ..",
+      ".. .. .."
+  };
+  if (depth <= 0 || depth >= 4) {
+    panic("vmprint_helper: depth not in {1, 2, 3}");
+  }
+  // there are 2^9 = 512 PTES in a page table.
+  for (int i = 0; i < 512; i++) {
+    pte_t pte = pagetable[i];
+    if (pte & PTE_V) { //是一个有效的PTE
+      printf("%s%d: pte %p pa %p\n", indent[depth], i, pte, PTE2PA(pte));
+      if ((pte & (PTE_R|PTE_W|PTE_X)) == 0) {
+        // points to a lower-level page table 并且是间接层PTE
+        uint64 child = PTE2PA(pte);
+        vmprint_helper((pagetable_t)child, depth+1); // 递归, 深度+1
+      }
+    }
+  }
+}
+void vmprint(pagetable_t pagetable) {
+  printf("page table %p\n", pagetable);
+  vmprint_helper(pagetable, 1);
 }
