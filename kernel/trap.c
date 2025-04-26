@@ -66,7 +66,7 @@ usertrap(void)
 
     syscall();
   } else if((which_dev = devintr()) != 0){
-    // ok
+    // ok devintr在时钟中断产生时返回2，返回0是not recognized
   } else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
@@ -77,8 +77,15 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == 2){
+    p->ticks_since_last_alarm+=1;
+    if(p->inalarm==0&&p->alarm_period!=0&&p->ticks_since_last_alarm==p->alarm_period){
+      p->inalarm=1;
+      *p->alarmframe=*p->trapframe;// 结构体的逐字节复制
+      p->trapframe->epc=(uint64)p->alarm_handler;
+    }
     yield();
+  }
 
   usertrapret();
 }

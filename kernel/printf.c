@@ -132,3 +132,16 @@ printfinit(void)
   initlock(&pr.lock, "pr");
   pr.locking = 1;
 }
+
+// 栈是从高地址向低地址增长，但帧指针（fp）指向的是当前栈帧的底部（高地址端）
+void backtrace(void){
+  printf("backtrace:\n");
+  uint64 cur_fp=r_fp();
+  uint64 pageend=PGROUNDUP(cur_fp);
+  while(cur_fp<pageend){
+    uint64 ret=*(pte_t*)(cur_fp-0x08);//别再犯10进制16进制分不清的傻逼
+    uint64 prev=*(pte_t*)(cur_fp-0x10);
+    printf("%p\n",ret);
+    cur_fp=prev;
+  }
+}

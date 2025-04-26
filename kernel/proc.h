@@ -105,4 +105,9 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  int alarm_period;            // alarm的周期
+  void (*alarm_handler)();     // 函数指针
+  int ticks_since_last_alarm;  // 如题
+  int inalarm;                 // 标识，如果处理程序还没有返回，内核就不应该再次调用它。
+  struct trapframe *alarmframe; // 保存寄存器，得回到最初被中断的指令执行
 };
