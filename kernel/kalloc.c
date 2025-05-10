@@ -9,6 +9,10 @@
 #include "riscv.h"
 #include "defs.h"
 
+#define PA2INDEX(pa) (((uint64)pa)/PGSIZE)//索引，用来标识这个页面的被引用的次数
+
+int cowcount[PHYSTOP/PGSIZE];
+
 void freerange(void *pa_start, void *pa_end);
 
 extern char end[]; // first address after kernel.
@@ -35,8 +39,10 @@ freerange(void *pa_start, void *pa_end)
 {
   char *p;
   p = (char*)PGROUNDUP((uint64)pa_start);
-  for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE)
+  for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE){
+    cowcount[PA2INDEX(p)]=1;
     kfree(p);
+  }
 }
 
 // Free the page of physical memory pointed at by v,
@@ -50,6 +56,14 @@ kfree(void *pa)
 
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
+
+  acquire(&kmem.lock);
+  int remain=--cowcount[PA2INDEX(pa)];
+  release(&kmem.lock);
+
+  if(remain>0){
+    return;//还有引用，不能free
+  }
 
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);
@@ -76,7 +90,22 @@ kalloc(void)
     kmem.freelist = r->next;
   release(&kmem.lock);
 
-  if(r)
-    memset((char*)r, 5, PGSIZE); // fill with junk
+  if(r) {
+    memset((char *)r, 5, PGSIZE); // fill with junk
+    int idx = PA2INDEX(r);
+    if (cowcount[idx] != 0) {
+      panic("kalloc: cowcount[idx] != 0");
+    }
+    cowcount[idx] = 1; // 新allocate的物理页的计数器为1
+  }
   return (void*)r;
+}
+
+void refcountplus(uint64 pa,int num){
+  if(pa>=PHYSTOP){
+    panic("refcountplus: pa too big");
+  }
+  acquire(&kmem.lock);
+  cowcount[PA2INDEX(pa)]+=num;
+  release(&kmem.lock);
 }
