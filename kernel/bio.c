@@ -28,7 +28,7 @@
 
 extern uint ticks;
 
-// 13 buckets, 5 buffer per bucket
+// 13 buckets, 5 buffers per bucket, total 65 buffers
 struct {
   struct spinlock lock;
   struct buf buf[BUFFERSIZE];
